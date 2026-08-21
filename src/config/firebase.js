@@ -34,14 +34,13 @@ try {
     auth = getAuth(app);
     db = getFirestore(app);
 
-    // Google Sign-In Provider with Gmail Readonly Scope
+    // Google Sign-In Provider (Authentication only)
     googleProvider = new GoogleAuthProvider();
-    googleProvider.addScope('https://www.googleapis.com/auth/gmail.readonly');
     googleProvider.setCustomParameters({
       prompt: 'select_account'
     });
 
-    // Initialize Analytics if supported in environment
+    // Initialize Analytics if supported
     if (typeof window !== 'undefined' && firebaseConfig.measurementId) {
       isSupported().then((supported) => {
         if (supported) {

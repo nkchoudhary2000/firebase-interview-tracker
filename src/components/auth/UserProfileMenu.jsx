@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LogOut, User, CheckCircle2, Mail, ShieldAlert, Sparkles, ChevronDown } from 'lucide-react';
+import { LogOut, User, Mail, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const UserProfileMenu = () => {
-  const { user, accessToken, isDemoMode, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -40,15 +40,9 @@ export const UserProfileMenu = () => {
           <div className="text-xs font-medium text-slate-200 line-clamp-1 max-w-[130px]">
             {user.displayName || 'User'}
           </div>
-          <div className="text-[10px] text-slate-400 flex items-center gap-1">
-            {isDemoMode ? (
-              <span className="text-amber-400 font-medium">Demo Mode</span>
-            ) : (
-              <span className="text-emerald-400 font-medium flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Connected
-              </span>
-            )}
+          <div className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Authenticated
           </div>
         </div>
         <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -64,23 +58,9 @@ export const UserProfileMenu = () => {
             </div>
           </div>
 
-          <div className="px-2 py-1.5 mb-2 bg-slate-950/50 rounded-xl border border-slate-800 text-[11px] space-y-1.5">
-            <div className="flex items-center justify-between text-slate-300">
-              <span>Gmail API Access:</span>
-              {accessToken ? (
-                <span className="text-emerald-400 font-medium flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Token Active
-                </span>
-              ) : isDemoMode ? (
-                <span className="text-amber-400 font-medium flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5" /> Simulated
-                </span>
-              ) : (
-                <span className="text-rose-400 font-medium flex items-center gap-1">
-                  <ShieldAlert className="w-3.5 h-3.5" /> Reconnect
-                </span>
-              )}
-            </div>
+          <div className="px-2 py-2 mb-2 bg-slate-950/50 rounded-xl border border-slate-800 text-[11px] text-slate-300 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>Private cloud sync active for your account</span>
           </div>
 
           <button

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, SlidersHorizontal, Plus, Sparkles, Filter } from 'lucide-react';
+import { Search, SlidersHorizontal, Plus, Filter } from 'lucide-react';
 import { useInterviews } from '../../context/InterviewContext';
 import { APPLICATION_STATUS } from '../../types/interview';
 
@@ -11,8 +11,7 @@ export const QuickFilters = ({ onOpenAddModal }) => {
     setStatusFilter,
     sortBy,
     setSortBy,
-    interviews,
-    loadSampleData
+    interviews
   } = useInterviews();
 
   const statuses = [

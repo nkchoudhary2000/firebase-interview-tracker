@@ -12,17 +12,15 @@ import {
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../config/firebase';
 import { useAuth } from './AuthContext';
-import { SAMPLE_INTERVIEWS } from '../data/sampleInterviews';
 import { APPLICATION_STATUS } from '../types/interview';
 
 const InterviewContext = createContext(null);
-const LOCAL_STORAGE_INTERVIEWS_KEY = 'interview_tracker_data_v1';
 
 export const InterviewProvider = ({ children }) => {
-  const { user, isDemoMode } = useAuth();
+  const { user } = useAuth();
   const [interviews, setInterviews] = useState([]);
   const [selectedInterviewId, setSelectedInterviewId] = useState(null);
-  const [activeTab, setActiveTab] = useState('tree'); // 'tree' | 'cards' | 'gmail' | 'stats' | 'knowledge'
+  const [activeTab, setActiveTab] = useState('tree'); // 'tree' | 'cards' | 'knowledge'
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('updated'); // 'updated' | 'company' | 'appliedDate'
@@ -37,11 +35,19 @@ export const InterviewProvider = ({ children }) => {
     setToastMessage(null);
   };
 
-  // Sync with Firestore or LocalStorage
+  // Sync strictly with user-owned Firestore collection
   useEffect(() => {
     const isConfigured = isFirebaseConfigured();
 
-    if (user && isConfigured && db && !isDemoMode) {
+    if (!user) {
+      // Clear data when logged out to ensure privacy
+      setInterviews([]);
+      setSelectedInterviewId(null);
+      setLoading(false);
+      return;
+    }
+
+    if (isConfigured && db) {
       setLoading(true);
       const q = query(
         collection(db, 'interviews'),
@@ -63,127 +69,77 @@ export const InterviewProvider = ({ children }) => {
           setLoading(false);
         },
         (error) => {
-          console.warn('Firestore subscription error:', error);
-          loadLocalFallback();
+          console.error('Firestore subscription error:', error);
+          setLoading(false);
         }
       );
 
       return () => unsubscribe();
     } else {
-      loadLocalFallback();
-    }
-  }, [user, isDemoMode]);
-
-  const loadLocalFallback = () => {
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_INTERVIEWS_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setInterviews(parsed);
-        if (parsed.length > 0 && !selectedInterviewId) {
-          setSelectedInterviewId(parsed[0].id);
-        }
-      } else {
-        // Start clean in production
-        setInterviews([]);
-        setSelectedInterviewId(null);
-      }
-    } catch (e) {
-      setInterviews([]);
-      setSelectedInterviewId(null);
-    } finally {
       setLoading(false);
     }
-  };
-
-  // Helper to persist local changes when offline/demo
-  const saveLocalInterviews = (updatedList) => {
-    setInterviews(updatedList);
-    localStorage.setItem(LOCAL_STORAGE_INTERVIEWS_KEY, JSON.stringify(updatedList));
-  };
+  }, [user]);
 
   // Add new interview entry
   const addInterview = async (interviewData) => {
-    const isConfigured = isFirebaseConfigured();
-    const newRecord = {
-      ...interviewData,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    if (user && isConfigured && db && !isDemoMode) {
-      try {
-        const docRef = await addDoc(collection(db, 'interviews'), {
-          ...newRecord,
-          userId: user.uid,
-          updatedAt: serverTimestamp()
-        });
-        setSelectedInterviewId(docRef.id);
-        showToast(`Added interview for ${interviewData.companyName || 'Company'}!`);
-        return docRef.id;
-      } catch (err) {
-        console.error('Failed to add interview to Firestore:', err);
-        showToast('Error saving to Cloud Firestore. Saved locally.', 'warning');
-      }
+    if (!user || !db) {
+      showToast('You must be signed in to save interviews.', 'error');
+      return null;
     }
 
-    // Local save
-    const localId = 'int_' + Date.now();
-    const withId = { ...newRecord, id: localId, userId: user?.uid || 'local' };
-    const updated = [withId, ...interviews];
-    saveLocalInterviews(updated);
-    setSelectedInterviewId(localId);
-    showToast(`Added interview for ${interviewData.companyName || 'Company'}!`);
-    return localId;
+    try {
+      const newRecord = {
+        ...interviewData,
+        userId: user.uid,
+        userEmail: user.email,
+        createdAt: new Date().toISOString(),
+        updatedAt: serverTimestamp()
+      };
+
+      const docRef = await addDoc(collection(db, 'interviews'), newRecord);
+      setSelectedInterviewId(docRef.id);
+      showToast(`Added interview dossier for ${interviewData.companyName || 'Company'}!`);
+      return docRef.id;
+    } catch (err) {
+      console.error('Failed to add interview to Firestore:', err);
+      showToast('Failed to save to Firestore. Check permissions.', 'error');
+      return null;
+    }
   };
 
   // Update existing interview
   const updateInterview = async (id, updatedFields) => {
-    const isConfigured = isFirebaseConfigured();
-    const timestamp = new Date().toISOString();
+    if (!user || !db) return;
 
-    if (user && isConfigured && db && !isDemoMode && !id.startsWith('int_') && !id.startsWith('sample_')) {
-      try {
-        const docRef = doc(db, 'interviews', id);
-        await updateDoc(docRef, {
-          ...updatedFields,
-          updatedAt: serverTimestamp()
-        });
-        showToast('Interview profile updated successfully!');
-        return;
-      } catch (err) {
-        console.error('Firestore update error:', err);
-      }
+    try {
+      const docRef = doc(db, 'interviews', id);
+      await updateDoc(docRef, {
+        ...updatedFields,
+        updatedAt: serverTimestamp()
+      });
+      showToast('Interview profile updated successfully!');
+    } catch (err) {
+      console.error('Firestore update error:', err);
+      showToast('Failed to update interview dossier.', 'error');
     }
-
-    const updated = interviews.map((item) =>
-      item.id === id ? { ...item, ...updatedFields, updatedAt: timestamp } : item
-    );
-    saveLocalInterviews(updated);
-    showToast('Interview profile updated!');
   };
 
   // Delete interview
   const deleteInterview = async (id) => {
-    const isConfigured = isFirebaseConfigured();
+    if (!user || !db) return;
     const target = interviews.find((i) => i.id === id);
 
-    if (user && isConfigured && db && !isDemoMode && !id.startsWith('int_') && !id.startsWith('sample_')) {
-      try {
-        await deleteDoc(doc(db, 'interviews', id));
-        showToast(`Deleted ${target?.companyName || 'Interview'} dossier.`, 'info');
-        return;
-      } catch (err) {
-        console.error('Firestore delete error:', err);
+    try {
+      await deleteDoc(doc(db, 'interviews', id));
+      if (selectedInterviewId === id) {
+        const remaining = interviews.filter((i) => i.id !== id);
+        setSelectedInterviewId(remaining[0]?.id || null);
       }
+      showToast(`Deleted ${target?.companyName || 'Interview'} dossier.`, 'info');
+    } catch (err) {
+      console.error('Firestore delete error:', err);
+      showToast('Failed to delete dossier.', 'error');
     }
-
-    const updated = interviews.filter((item) => item.id !== id);
-    saveLocalInterviews(updated);
-    if (selectedInterviewId === id) {
-      setSelectedInterviewId(updated[0]?.id || null);
-    }
-    showToast(`Deleted ${target?.companyName || 'Interview'} dossier.`, 'info');
   };
 
   // Rounds manipulation helpers
@@ -264,20 +220,6 @@ export const InterviewProvider = ({ children }) => {
     showToast('Question removed.', 'info');
   };
 
-  // Load rich sample dataset on demand
-  const loadSampleData = () => {
-    saveLocalInterviews(SAMPLE_INTERVIEWS);
-    setSelectedInterviewId(SAMPLE_INTERVIEWS[0]?.id || null);
-    showToast('Loaded realistic sample interviews!', 'success');
-  };
-
-  // Clear all data
-  const clearAllData = () => {
-    saveLocalInterviews([]);
-    setSelectedInterviewId(null);
-    showToast('Cleared interview tracker records.', 'info');
-  };
-
   // Selected interview object
   const selectedInterview = interviews.find((i) => i.id === selectedInterviewId) || interviews[0] || null;
 
@@ -302,7 +244,8 @@ export const InterviewProvider = ({ children }) => {
       if (sortBy === 'appliedDate') {
         return new Date(b.appliedDate || 0) - new Date(a.appliedDate || 0);
       }
-      return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+      return new Date(b.updatedAt?.seconds ? b.updatedAt.seconds * 1000 : b.updatedAt || 0) - 
+             new Date(a.updatedAt?.seconds ? a.updatedAt.seconds * 1000 : a.updatedAt || 0);
     });
 
   // Calculate high-level metrics for dashboard
@@ -347,9 +290,7 @@ export const InterviewProvider = ({ children }) => {
         deleteRound,
         addQA,
         updateQA,
-        deleteQA,
-        loadSampleData,
-        clearAllData
+        deleteQA
       }}
     >
       {children}

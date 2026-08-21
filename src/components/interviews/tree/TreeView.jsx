@@ -63,20 +63,13 @@ export const TreeView = ({ onOpenAddModal, onEditInterview, onDeleteInterview })
         <p className="mt-1 text-sm text-slate-400 max-w-md mx-auto">
           Start mapping your interview processes, HR contacts, technical rounds, and questions.
         </p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <div className="mt-6 flex items-center justify-center">
           <button
             onClick={onOpenAddModal}
-            className="glass-button-primary text-xs"
+            className="glass-button-primary text-xs px-4 py-2.5"
           >
             <Plus className="w-4 h-4" />
-            <span>Add New Company</span>
-          </button>
-          <button
-            onClick={loadSampleData}
-            className="glass-button-secondary text-xs"
-          >
-            <Sparkles className="w-4 h-4 text-brand-400" />
-            <span>Load Sample Interviews</span>
+            <span>Add Your First Interview Dossier</span>
           </button>
         </div>
       </div>
