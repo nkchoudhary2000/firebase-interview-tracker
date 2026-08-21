@@ -94,7 +94,6 @@ export const createEmptyInterview = () => ({
   appliedDate: new Date().toISOString().split('T')[0],
   notes: '',
   tags: [],
-  customFields: [],
   hrContacts: [],
   interviewers: [],
   rounds: []

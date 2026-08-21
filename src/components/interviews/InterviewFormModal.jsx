@@ -15,14 +15,7 @@ import {
   MapPin,
   Tag,
   Search,
-  Sparkles,
-  ExternalLink,
-  Globe,
-  Loader2,
-  BookOpen,
-  Sliders,
-  ChevronDown,
-  ChevronUp
+  Loader2
 } from 'lucide-react';
 import { 
   createEmptyInterview, 
@@ -33,7 +26,7 @@ import {
   APPLICATION_STATUS, 
   ROUND_STATUS 
 } from '../../types/interview';
-import { searchCompanies, getCompanyVCardIntelligence } from '../../services/companyLookupService';
+import { searchCompanyNames } from '../../services/companySearchService';
 
 export const InterviewFormModal = ({
   isOpen,
@@ -45,14 +38,11 @@ export const InterviewFormModal = ({
   const [formData, setFormData] = useState(createEmptyInterview());
   const [tagInput, setTagInput] = useState('');
 
-  // Autocomplete & Wikipedia vCard state
+  // Company Name Google-style suggestion state
   const [companySuggestions, setCompanySuggestions] = useState([]);
   const [isSearchingCompanies, setIsSearchingCompanies] = useState(false);
-  const [isLoadingWiki, setIsLoadingWiki] = useState(false);
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
-  const [autoFilledMessage, setAutoFilledMessage] = useState(null);
-  const [showCustomFieldsSection, setShowCustomFieldsSection] = useState(true);
 
   const dropdownRef = useRef(null);
   const searchTimeoutRef = useRef(null);
@@ -62,7 +52,6 @@ export const InterviewFormModal = ({
       setFormData({
         ...createEmptyInterview(),
         ...initialData,
-        customFields: initialData.customFields || [],
         hrContacts: initialData.hrContacts || [],
         interviewers: initialData.interviewers || [],
         rounds: initialData.rounds || []
@@ -73,10 +62,10 @@ export const InterviewFormModal = ({
     setActiveTab('company');
     setCompanySuggestions([]);
     setShowCompanyDropdown(false);
-    setAutoFilledMessage(null);
+    setSelectedSuggestionIndex(-1);
   }, [initialData, isOpen]);
 
-  // Click outside to close autocomplete dropdown
+  // Click outside to close suggestion dropdown
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -89,55 +78,7 @@ export const InterviewFormModal = ({
 
   if (!isOpen) return null;
 
-  // Live Wikipedia vCard scan & extract helper
-  const handleFetchWikipediaVCard = async (targetName) => {
-    const query = targetName || formData.companyName;
-    if (!query || !query.trim()) return;
-
-    setIsLoadingWiki(true);
-    setShowCompanyDropdown(false);
-
-    try {
-      const wikiData = await getCompanyVCardIntelligence(query.trim());
-      if (wikiData) {
-        const mergedTags = Array.from(
-          new Set([...(formData.tags || []), ...(wikiData.tags || [])])
-        );
-
-        setFormData((prev) => ({
-          ...prev,
-          companyName: wikiData.companyName || prev.companyName,
-          companySize: wikiData.companySize || prev.companySize,
-          location: wikiData.location || prev.location,
-          jobLink: wikiData.jobLink || prev.jobLink,
-          tags: mergedTags,
-          notes: wikiData.notes
-            ? prev.notes
-              ? `${prev.notes}\n\n${wikiData.notes}`
-              : wikiData.notes
-            : prev.notes,
-          customFields: wikiData.customFields && wikiData.customFields.length > 0 
-            ? wikiData.customFields 
-            : prev.customFields || []
-        }));
-
-        const count = wikiData.customFields?.length || 0;
-        setAutoFilledMessage(
-          `✨ Live Wikipedia vCard extracted: Verified employee count & ${count} custom attributes!`
-        );
-        setShowCustomFieldsSection(true);
-      } else {
-        setAutoFilledMessage(`No detailed Wikipedia vCard infobox found for "${query}".`);
-      }
-    } catch (err) {
-      console.warn('Wikipedia vCard fetch error:', err);
-    } finally {
-      setIsLoadingWiki(false);
-      setTimeout(() => setAutoFilledMessage(null), 5000);
-    }
-  };
-
-  // Handle Company Name change with live Google-style autocomplete
+  // Handle typing in Company Name input
   const handleCompanyNameChange = (value) => {
     setFormData((prev) => ({ ...prev, companyName: value }));
     setSelectedSuggestionIndex(-1);
@@ -146,7 +87,7 @@ export const InterviewFormModal = ({
       clearTimeout(searchTimeoutRef.current);
     }
 
-    if (!value || value.trim().length === 0) {
+    if (!value || !value.trim()) {
       setCompanySuggestions([]);
       setShowCompanyDropdown(false);
       return;
@@ -155,9 +96,9 @@ export const InterviewFormModal = ({
     setIsSearchingCompanies(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const results = await searchCompanies(value);
-        setCompanySuggestions(results);
-        setShowCompanyDropdown(results.length > 0);
+        const names = await searchCompanyNames(value);
+        setCompanySuggestions(names);
+        setShowCompanyDropdown(names.length > 0);
       } catch (err) {
         console.warn('Company search error:', err);
       } finally {
@@ -166,26 +107,17 @@ export const InterviewFormModal = ({
     }, 150);
   };
 
-  // Handle selection of a company from autocomplete suggestions
-  const handleSelectCompany = async (company) => {
-    setShowCompanyDropdown(false);
-    
-    // Preliminary fill from suggestion
+  // Only set the company name when clicked, leave all other fields blank for manual user entry
+  const handleSelectCompanyName = (companyName) => {
     setFormData((prev) => ({
       ...prev,
-      companyName: company.name,
-      companySize: company.companySize || prev.companySize,
-      location: company.location || prev.location,
-      jobLink: company.jobLink || prev.jobLink,
-      tags: Array.from(new Set([...(prev.tags || []), ...(company.tags || [])])),
-      notes: company.overview || prev.notes
+      companyName: companyName
     }));
-
-    // Trigger full live Wikipedia Infobox vCard deep scan
-    await handleFetchWikipediaVCard(company.name);
+    setShowCompanyDropdown(false);
+    setCompanySuggestions([]);
   };
 
-  // Handle Keyboard navigation in autocomplete dropdown
+  // Keyboard navigation for suggestion dropdown
   const handleCompanyInputKeyDown = (e) => {
     if (!showCompanyDropdown || companySuggestions.length === 0) return;
 
@@ -198,37 +130,11 @@ export const InterviewFormModal = ({
     } else if (e.key === 'Enter') {
       if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < companySuggestions.length) {
         e.preventDefault();
-        handleSelectCompany(companySuggestions[selectedSuggestionIndex]);
+        handleSelectCompanyName(companySuggestions[selectedSuggestionIndex]);
       }
     } else if (e.key === 'Escape') {
       setShowCompanyDropdown(false);
     }
-  };
-
-  // Custom vCard fields helpers
-  const handleAddCustomField = () => {
-    const newField = {
-      id: 'cf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      label: '',
-      value: ''
-    };
-    setFormData({
-      ...formData,
-      customFields: [...(formData.customFields || []), newField]
-    });
-  };
-
-  const handleUpdateCustomField = (index, key, val) => {
-    const updated = [...(formData.customFields || [])];
-    updated[index] = { ...updated[index], [key]: val };
-    setFormData({ ...formData, customFields: updated });
-  };
-
-  const handleRemoveCustomField = (index) => {
-    setFormData({
-      ...formData,
-      customFields: (formData.customFields || []).filter((_, i) => i !== index)
-    });
   };
 
   const handleSubmit = (e) => {
@@ -365,7 +271,7 @@ export const InterviewFormModal = ({
                 {initialData ? `Edit Interview: ${initialData.companyName}` : 'Add New Interview Dossier'}
               </h3>
               <p className="text-xs text-slate-400">
-                Search Wikipedia Infobox vCards for real-time accurate employee counts, financials, and custom attributes.
+                Search company name with Google-style suggestions, and fill in your interview details manually.
               </p>
             </div>
           </div>
@@ -380,7 +286,7 @@ export const InterviewFormModal = ({
         {/* Tab Navigation */}
         <div className="flex items-center gap-2 px-5 py-2.5 bg-slate-950/60 border-b border-slate-800 text-xs overflow-x-auto no-scrollbar">
           {[
-            { id: 'company', label: '1. Company & Overview', icon: <Briefcase className="w-3.5 h-3.5" /> },
+            { id: 'company', label: '1. Company & Role', icon: <Briefcase className="w-3.5 h-3.5" /> },
             { id: 'contacts', label: `2. HR Contacts (${formData.hrContacts?.length || 0})`, icon: <Users className="w-3.5 h-3.5" /> },
             { id: 'interviewers', label: `3. Interviewers (${formData.interviewers?.length || 0})`, icon: <UserCheck className="w-3.5 h-3.5" /> },
             { id: 'rounds', label: `4. Rounds & Q&A (${formData.rounds?.length || 0})`, icon: <Calendar className="w-3.5 h-3.5" /> }
@@ -407,55 +313,17 @@ export const InterviewFormModal = ({
             {/* Tab 1: Company Overview */}
             {activeTab === 'company' && (
               <div className="space-y-4 animate-fade-in">
-                {/* Auto-fill notification badge */}
-                {autoFilledMessage && (
-                  <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-950/80 via-slate-900/90 to-brand-950/80 border border-emerald-500/40 text-emerald-200 text-xs flex items-center justify-between gap-2 animate-fade-in shadow-md">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span className="font-medium">{autoFilledMessage}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAutoFilledMessage(null)}
-                      className="text-slate-400 hover:text-slate-200"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Company Name with Live Google / Wikipedia Autocomplete */}
+                  {/* Company Name with Google Search Style Suggestions */}
                   <div className="relative" ref={dropdownRef}>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold text-slate-300">
-                        Company Name <span className="text-rose-400">*</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => handleFetchWikipediaVCard(formData.companyName)}
-                        disabled={isLoadingWiki || !formData.companyName}
-                        className="text-[11px] text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 hover:underline disabled:opacity-50"
-                        title="Scan Wikipedia Infobox vCard for live stats"
-                      >
-                        {isLoadingWiki ? (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            <span>Parsing vCard...</span>
-                          </>
-                        ) : (
-                          <>
-                            <BookOpen className="w-3 h-3" />
-                            <span>Scan Wikipedia vCard</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                    <label className="text-xs font-semibold text-slate-300 block mb-1">
+                      Company Name <span className="text-rose-400">*</span>
+                    </label>
 
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="Type company (e.g. Nvidia, Google, Apple, Zomato)..."
+                        placeholder="Search company (e.g. Google, Stripe, Microsoft)..."
                         value={formData.companyName}
                         onChange={(e) => handleCompanyNameChange(e.target.value)}
                         onKeyDown={handleCompanyInputKeyDown}
@@ -467,7 +335,7 @@ export const InterviewFormModal = ({
                         autoFocus
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                        {isSearchingCompanies || isLoadingWiki ? (
+                        {isSearchingCompanies ? (
                           <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
                         ) : (
                           <Search className="w-4 h-4 text-slate-500" />
@@ -475,61 +343,23 @@ export const InterviewFormModal = ({
                       </div>
                     </div>
 
-                    {/* Google Search Style Autocomplete Dropdown */}
+                    {/* Google Style Autocomplete Dropdown */}
                     {showCompanyDropdown && companySuggestions.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-2xl glass-panel border border-slate-700/90 shadow-2xl bg-slate-900/95 overflow-hidden divide-y divide-slate-800/80 animate-fade-in max-h-72 overflow-y-auto">
-                        <div className="px-3 py-2 bg-slate-950/80 text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                          <span className="flex items-center gap-1">
-                            <BookOpen className="w-3 h-3 text-brand-400" />
-                            Wikipedia vCard Autocomplete
-                          </span>
-                          <span className="text-brand-400 font-normal">Click to auto-fill</span>
-                        </div>
-
-                        {companySuggestions.map((comp, idx) => {
+                      <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl glass-panel border border-slate-700/90 shadow-2xl bg-slate-900/95 overflow-hidden divide-y divide-slate-800/80 animate-fade-in max-h-60 overflow-y-auto">
+                        {companySuggestions.map((name, idx) => {
                           const isSelected = selectedSuggestionIndex === idx;
                           return (
                             <div
-                              key={comp.name + idx}
-                              onClick={() => handleSelectCompany(comp)}
-                              className={`p-3 cursor-pointer transition-all flex items-start gap-3 select-none ${
+                              key={name + idx}
+                              onClick={() => handleSelectCompanyName(name)}
+                              className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center gap-2.5 select-none ${
                                 isSelected
-                                  ? 'bg-brand-600/30 border-l-4 border-brand-500 text-white'
-                                  : 'hover:bg-slate-800/70 text-slate-200'
+                                  ? 'bg-brand-600 text-white'
+                                  : 'hover:bg-slate-800/80 text-slate-200'
                               }`}
                             >
-                              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5 shadow-sm">
-                                {comp.name.charAt(0).toUpperCase()}
-                              </div>
-
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs font-bold text-slate-100 truncate">
-                                    {comp.name}
-                                  </span>
-                                  {comp.companySize && (
-                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 shrink-0">
-                                      {comp.companySize}
-                                    </span>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                                  {comp.domain && <span>{comp.domain}</span>}
-                                  {comp.location && (
-                                    <>
-                                      <span>•</span>
-                                      <span className="truncate">{comp.location}</span>
-                                    </>
-                                  )}
-                                </div>
-
-                                {comp.overview && (
-                                  <p className="text-[11px] text-slate-400 mt-1 line-clamp-1 italic">
-                                    {comp.overview}
-                                  </p>
-                                )}
-                              </div>
+                              <Search className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-white' : 'text-slate-500'}`} />
+                              <span className="text-xs font-medium truncate">{name}</span>
                             </div>
                           );
                         })}
@@ -543,7 +373,7 @@ export const InterviewFormModal = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Senior Staff Systems Engineer"
+                      placeholder="e.g. Senior Software Engineer"
                       value={formData.jobTitle}
                       onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
                       className="w-full glass-input"
@@ -556,10 +386,10 @@ export const InterviewFormModal = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. 42,000 (FY26) (Wikipedia Verified)"
+                      placeholder="e.g. 5,000+ employees"
                       value={formData.companySize}
                       onChange={(e) => setFormData({ ...formData, companySize: e.target.value })}
-                      className="w-full glass-input font-medium text-emerald-300"
+                      className="w-full glass-input"
                     />
                   </div>
 
@@ -569,7 +399,7 @@ export const InterviewFormModal = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. $210,000 Base + RSUs / ₹55 LPA"
+                      placeholder="e.g. $180,000 Base / ₹40 LPA"
                       value={formData.expectedCtc}
                       onChange={(e) => setFormData({ ...formData, expectedCtc: e.target.value })}
                       className="w-full glass-input"
@@ -595,11 +425,11 @@ export const InterviewFormModal = ({
 
                   <div>
                     <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Location / Headquarters
+                      Location / Work Arrangement
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Santa Clara, California, US / Remote"
+                      placeholder="e.g. Remote / Hybrid / Bengaluru"
                       value={formData.location}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                       className="w-full glass-input"
@@ -632,91 +462,6 @@ export const InterviewFormModal = ({
                   </div>
                 </div>
 
-                {/* Custom Dynamic Fields generated from Wikipedia Infobox vCard Length */}
-                <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Sliders className="w-4 h-4 text-brand-400" />
-                      <span className="text-xs font-bold text-slate-200">
-                        Wikipedia Infobox vCard & Custom Fields ({formData.customFields?.length || 0})
-                      </span>
-                      {formData.customFields?.length > 0 && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30">
-                          Auto-generated
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleAddCustomField}
-                        className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Field</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowCustomFieldsSection(!showCustomFieldsSection)}
-                        className="p-1 text-slate-400 hover:text-slate-200"
-                      >
-                        {showCustomFieldsSection ? (
-                          <ChevronUp className="w-4 h-4" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {showCustomFieldsSection && (
-                    <div className="space-y-2.5 pt-2 border-t border-slate-800/80">
-                      {(!formData.customFields || formData.customFields.length === 0) && (
-                        <div className="text-[11px] text-slate-500 italic p-2 rounded-lg bg-slate-900/40">
-                          Type a company name or click &quot;Scan Wikipedia vCard&quot; above to auto-generate custom fields (Founders, CEO, Revenue, Stock Ticker, Subsidiaries, etc.) based on the Wikipedia vCard length.
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        {(formData.customFields || []).map((field, fIdx) => (
-                          <div
-                            key={field.id || fIdx}
-                            className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center gap-2 group"
-                          >
-                            <div className="w-2/5 shrink-0">
-                              <input
-                                type="text"
-                                placeholder="Attribute (e.g. Founders)"
-                                value={field.label}
-                                onChange={(e) => handleUpdateCustomField(fIdx, 'label', e.target.value)}
-                                className="w-full glass-input text-[11px] py-1 font-semibold text-slate-300"
-                              />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <input
-                                type="text"
-                                placeholder="Value (e.g. Jensen Huang)"
-                                value={field.value}
-                                onChange={(e) => handleUpdateCustomField(fIdx, 'value', e.target.value)}
-                                className="w-full glass-input text-[11px] py-1 text-slate-100"
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveCustomField(fIdx)}
-                              className="p-1 text-slate-500 hover:text-rose-400"
-                              title="Delete attribute"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
                 {/* Tags */}
                 <div>
                   <label className="text-xs font-semibold text-slate-300 block mb-1">
@@ -740,7 +485,7 @@ export const InterviewFormModal = ({
                     ))}
                     <input
                       type="text"
-                      placeholder="Add tag (e.g. Semiconductors, Cloud, AI)..."
+                      placeholder="Add tag (e.g. Fintech, FullStack)..."
                       value={tagInput}
                       onChange={(e) => setTagInput(e.target.value)}
                       onKeyDown={handleAddTag}
@@ -752,10 +497,10 @@ export const InterviewFormModal = ({
                 {/* Notes */}
                 <div>
                   <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    Company Overview & Strategy Notes
+                    Company Notes & Strategy
                   </label>
                   <textarea
-                    placeholder="Wikipedia summary description and your interview notes..."
+                    placeholder="Enter your notes, prep strategy, referral info, etc..."
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     rows={3}
