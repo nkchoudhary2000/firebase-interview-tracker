@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Building2, 
   DollarSign, 
@@ -13,7 +13,12 @@ import {
   Briefcase,
   Link as LinkIcon,
   MapPin,
-  Tag
+  Tag,
+  Search,
+  Sparkles,
+  ExternalLink,
+  Globe,
+  Loader2
 } from 'lucide-react';
 import { 
   createEmptyInterview, 
@@ -24,6 +29,7 @@ import {
   APPLICATION_STATUS, 
   ROUND_STATUS 
 } from '../../types/interview';
+import { searchCompanies } from '../../services/companyLookupService';
 
 export const InterviewFormModal = ({
   isOpen,
@@ -34,6 +40,16 @@ export const InterviewFormModal = ({
   const [activeTab, setActiveTab] = useState('company'); // 'company' | 'contacts' | 'interviewers' | 'rounds'
   const [formData, setFormData] = useState(createEmptyInterview());
   const [tagInput, setTagInput] = useState('');
+
+  // Autocomplete state
+  const [companySuggestions, setCompanySuggestions] = useState([]);
+  const [isSearchingCompanies, setIsSearchingCompanies] = useState(false);
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const [autoFilledMessage, setAutoFilledMessage] = useState(null);
+
+  const dropdownRef = useRef(null);
+  const searchTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (initialData) {
@@ -48,9 +64,97 @@ export const InterviewFormModal = ({
       setFormData(createEmptyInterview());
     }
     setActiveTab('company');
+    setCompanySuggestions([]);
+    setShowCompanyDropdown(false);
+    setAutoFilledMessage(null);
   }, [initialData, isOpen]);
 
+  // Click outside to close autocomplete dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowCompanyDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   if (!isOpen) return null;
+
+  // Handle Company Name change with live Google-style autocomplete
+  const handleCompanyNameChange = (value) => {
+    setFormData((prev) => ({ ...prev, companyName: value }));
+    setSelectedSuggestionIndex(-1);
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (!value || value.trim().length === 0) {
+      setCompanySuggestions([]);
+      setShowCompanyDropdown(false);
+      return;
+    }
+
+    setIsSearchingCompanies(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await searchCompanies(value);
+        setCompanySuggestions(results);
+        setShowCompanyDropdown(results.length > 0);
+      } catch (err) {
+        console.warn('Company search error:', err);
+      } finally {
+        setIsSearchingCompanies(false);
+      }
+    }, 150);
+  };
+
+  // Handle selection of a company from autocomplete suggestions
+  const handleSelectCompany = (company) => {
+    const mergedTags = Array.from(
+      new Set([...(formData.tags || []), ...(company.tags || [])])
+    );
+
+    setFormData((prev) => ({
+      ...prev,
+      companyName: company.name,
+      companySize: company.companySize || prev.companySize,
+      location: company.location || prev.location,
+      jobLink: company.jobLink || prev.jobLink,
+      tags: mergedTags,
+      notes: company.overview
+        ? prev.notes
+          ? `${prev.notes}\n\n${company.overview}`
+          : company.overview
+        : prev.notes
+    }));
+
+    setShowCompanyDropdown(false);
+    setAutoFilledMessage(`✨ Auto-filled employee count & company details for ${company.name}!`);
+    setTimeout(() => setAutoFilledMessage(null), 4000);
+  };
+
+  // Handle Keyboard navigation in autocomplete dropdown
+  const handleCompanyInputKeyDown = (e) => {
+    if (!showCompanyDropdown || companySuggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedSuggestionIndex((prev) => (prev + 1) % companySuggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedSuggestionIndex((prev) => (prev - 1 + companySuggestions.length) % companySuggestions.length);
+    } else if (e.key === 'Enter') {
+      if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < companySuggestions.length) {
+        e.preventDefault();
+        handleSelectCompany(companySuggestions[selectedSuggestionIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowCompanyDropdown(false);
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -186,7 +290,7 @@ export const InterviewFormModal = ({
                 {initialData ? `Edit Interview: ${initialData.companyName}` : 'Add New Interview Dossier'}
               </h3>
               <p className="text-xs text-slate-400">
-                Configure company overview, HR contacts, technical interviewers, and round Q&As.
+                Type company name for instant Google-style auto-fill of employee count and company details.
               </p>
             </div>
           </div>
@@ -228,20 +332,106 @@ export const InterviewFormModal = ({
             {/* Tab 1: Company Overview */}
             {activeTab === 'company' && (
               <div className="space-y-4 animate-fade-in">
+                {/* Auto-fill notification badge */}
+                {autoFilledMessage && (
+                  <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-950/70 to-brand-950/70 border border-emerald-500/40 text-emerald-200 text-xs flex items-center gap-2 animate-fade-in">
+                    <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="font-medium">{autoFilledMessage}</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Company Name <span className="text-rose-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Stripe, Google, Datadog"
-                      value={formData.companyName}
-                      onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                      required
-                      className="w-full glass-input"
-                      autoFocus
-                    />
+                  {/* Company Name with Live Google Autocomplete */}
+                  <div className="relative" ref={dropdownRef}>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-300">
+                        Company Name <span className="text-rose-400">*</span>
+                      </label>
+                      <span className="text-[10px] text-brand-400 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" /> Auto-suggest active
+                      </span>
+                    </div>
+
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Type company (e.g., Google, Stripe, Meta, Uber)..."
+                        value={formData.companyName}
+                        onChange={(e) => handleCompanyNameChange(e.target.value)}
+                        onKeyDown={handleCompanyInputKeyDown}
+                        onFocus={() => {
+                          if (companySuggestions.length > 0) setShowCompanyDropdown(true);
+                        }}
+                        required
+                        className="w-full glass-input pr-9"
+                        autoFocus
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                        {isSearchingCompanies ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
+                        ) : (
+                          <Search className="w-4 h-4 text-slate-500" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Google Search Style Autocomplete Dropdown */}
+                    {showCompanyDropdown && companySuggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-2xl glass-panel border border-slate-700/90 shadow-2xl bg-slate-900/95 overflow-hidden divide-y divide-slate-800/80 animate-fade-in max-h-72 overflow-y-auto">
+                        <div className="px-3 py-2 bg-slate-950/80 text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                          <span>Suggested Companies</span>
+                          <span className="text-brand-400 font-normal">Click to auto-fill</span>
+                        </div>
+
+                        {companySuggestions.map((comp, idx) => {
+                          const isSelected = selectedSuggestionIndex === idx;
+                          return (
+                            <div
+                              key={comp.name + idx}
+                              onClick={() => handleSelectCompany(comp)}
+                              className={`p-3 cursor-pointer transition-all flex items-start gap-3 select-none ${
+                                isSelected
+                                  ? 'bg-brand-600/30 border-l-4 border-brand-500 text-white'
+                                  : 'hover:bg-slate-800/70 text-slate-200'
+                              }`}
+                            >
+                              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5 shadow-sm">
+                                {comp.name.charAt(0).toUpperCase()}
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-bold text-slate-100 truncate">
+                                    {comp.name}
+                                  </span>
+                                  {comp.companySize && (
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 shrink-0">
+                                      {comp.companySize}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                                  {comp.domain && <span>{comp.domain}</span>}
+                                  {comp.location && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="truncate">{comp.location}</span>
+                                    </>
+                                  )}
+                                </div>
+
+                                {comp.overview && (
+                                  <p className="text-[11px] text-slate-400 mt-1 line-clamp-1 italic">
+                                    {comp.overview}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -259,14 +449,14 @@ export const InterviewFormModal = ({
 
                   <div>
                     <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Company Size
+                      Company Size / Employee Count
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. 5,000+ employees / Series B startup"
+                      placeholder="e.g. 180,000+ employees (Big Tech)"
                       value={formData.companySize}
                       onChange={(e) => setFormData({ ...formData, companySize: e.target.value })}
-                      className="w-full glass-input"
+                      className="w-full glass-input font-medium text-emerald-300"
                     />
                   </div>
 
@@ -306,7 +496,7 @@ export const InterviewFormModal = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Remote (US) / San Francisco / Hybrid"
+                      placeholder="e.g. Remote / Mountain View, CA"
                       value={formData.location}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                       className="w-full glass-input"
@@ -327,7 +517,7 @@ export const InterviewFormModal = ({
 
                   <div>
                     <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Job Posting URL
+                      Job Posting / Careers Link
                     </label>
                     <input
                       type="url"
@@ -342,7 +532,7 @@ export const InterviewFormModal = ({
                 {/* Tags */}
                 <div>
                   <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    Tags & Keywords (Press Enter)
+                    Tags & Keywords (Press Enter or comma)
                   </label>
                   <div className="p-2 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-wrap items-center gap-1.5">
                     {(formData.tags || []).map((t) => (
@@ -362,7 +552,7 @@ export const InterviewFormModal = ({
                     ))}
                     <input
                       type="text"
-                      placeholder="Add tag (e.g. Fintech, High Priority)..."
+                      placeholder="Add tag (e.g. Fintech, High Scale)..."
                       value={tagInput}
                       onChange={(e) => setTagInput(e.target.value)}
                       onKeyDown={handleAddTag}
@@ -374,10 +564,10 @@ export const InterviewFormModal = ({
                 {/* Notes */}
                 <div>
                   <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    Strategy & General Notes
+                    Company Overview & Strategy Notes
                   </label>
                   <textarea
-                    placeholder="Key highlights, referral details, recruiter expectations..."
+                    placeholder="Auto-filled company description or your own interview strategy notes..."
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     rows={3}
@@ -454,7 +644,7 @@ export const InterviewFormModal = ({
                         />
                         <input
                           type="text"
-                          placeholder="Role / Notes (e.g., Primary Talent Partner)"
+                          placeholder="Role / Notes (e.g., Lead Technical Recruiter)"
                           value={contact.notes}
                           onChange={(e) => handleUpdateContact(idx, 'notes', e.target.value)}
                           className="glass-input text-xs sm:col-span-3"
