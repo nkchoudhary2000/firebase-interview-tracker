@@ -1,8 +1,11 @@
 /**
  * Company Autocomplete & Auto-fill Lookup Service
- * Provides instant search suggestions and auto-fills employee count, headquarters,
- * career links, tags, and company overviews.
+ * Combines curated company datasets with live Wikipedia Infobox vCard parsing.
+ * Extracts accurate, up-to-date employee counts and dynamically generates custom fields
+ * based on all vCard table rows.
  */
+
+import { fetchCompanyWikipediaDetails, searchWikipediaCompanies } from './wikipediaService';
 
 // Curated database of top global companies, tech giants, startups, unicorns & enterprises
 export const POPULAR_COMPANIES = [
@@ -10,7 +13,6 @@ export const POPULAR_COMPANIES = [
     name: 'Google',
     aliases: ['Alphabet', 'Google LLC'],
     domain: 'google.com',
-    logo: 'https://logo.clearbit.com/google.com',
     companySize: '180,000+ employees (Big Tech)',
     location: 'Mountain View, CA / Global',
     jobLink: 'https://careers.google.com',
@@ -21,7 +23,6 @@ export const POPULAR_COMPANIES = [
     name: 'Microsoft',
     aliases: ['MSFT'],
     domain: 'microsoft.com',
-    logo: 'https://logo.clearbit.com/microsoft.com',
     companySize: '220,000+ employees (Big Tech)',
     location: 'Redmond, WA / Remote',
     jobLink: 'https://careers.microsoft.com',
@@ -32,7 +33,6 @@ export const POPULAR_COMPANIES = [
     name: 'Amazon',
     aliases: ['AWS', 'Amazon.com'],
     domain: 'amazon.com',
-    logo: 'https://logo.clearbit.com/amazon.com',
     companySize: '1,500,000+ employees (Enterprise)',
     location: 'Seattle, WA / Arlington, VA',
     jobLink: 'https://amazon.jobs',
@@ -43,7 +43,6 @@ export const POPULAR_COMPANIES = [
     name: 'Apple',
     aliases: ['Apple Inc'],
     domain: 'apple.com',
-    logo: 'https://logo.clearbit.com/apple.com',
     companySize: '160,000+ employees (Big Tech)',
     location: 'Cupertino, CA / Hybrid',
     jobLink: 'https://jobs.apple.com',
@@ -54,7 +53,6 @@ export const POPULAR_COMPANIES = [
     name: 'Meta',
     aliases: ['Facebook', 'Instagram', 'WhatsApp'],
     domain: 'meta.com',
-    logo: 'https://logo.clearbit.com/meta.com',
     companySize: '67,000+ employees (Big Tech)',
     location: 'Menlo Park, CA / Remote',
     jobLink: 'https://metacareers.com',
@@ -65,7 +63,6 @@ export const POPULAR_COMPANIES = [
     name: 'Netflix',
     aliases: ['Netflix Inc'],
     domain: 'netflix.com',
-    logo: 'https://logo.clearbit.com/netflix.com',
     companySize: '13,000+ employees (Scale-up)',
     location: 'Los Gatos, CA / Remote',
     jobLink: 'https://jobs.netflix.com',
@@ -76,7 +73,6 @@ export const POPULAR_COMPANIES = [
     name: 'Stripe',
     aliases: ['Stripe Payments'],
     domain: 'stripe.com',
-    logo: 'https://logo.clearbit.com/stripe.com',
     companySize: '8,000+ employees (Unicorn / Enterprise)',
     location: 'San Francisco, CA / Dublin / Remote',
     jobLink: 'https://stripe.com/jobs',
@@ -87,7 +83,6 @@ export const POPULAR_COMPANIES = [
     name: 'Uber',
     aliases: ['Uber Technologies'],
     domain: 'uber.com',
-    logo: 'https://logo.clearbit.com/uber.com',
     companySize: '30,000+ employees (Enterprise)',
     location: 'San Francisco, CA / Global',
     jobLink: 'https://uber.com/careers',
@@ -98,7 +93,6 @@ export const POPULAR_COMPANIES = [
     name: 'Airbnb',
     aliases: ['Airbnb Inc'],
     domain: 'airbnb.com',
-    logo: 'https://logo.clearbit.com/airbnb.com',
     companySize: '6,800+ employees',
     location: 'San Francisco, CA / Remote (Live Anywhere)',
     jobLink: 'https://careers.airbnb.com',
@@ -109,7 +103,6 @@ export const POPULAR_COMPANIES = [
     name: 'OpenAI',
     aliases: ['ChatGPT'],
     domain: 'openai.com',
-    logo: 'https://logo.clearbit.com/openai.com',
     companySize: '1,500+ employees (AI Frontier)',
     location: 'San Francisco, CA',
     jobLink: 'https://openai.com/careers',
@@ -120,7 +113,6 @@ export const POPULAR_COMPANIES = [
     name: 'Anthropic',
     aliases: ['Claude'],
     domain: 'anthropic.com',
-    logo: 'https://logo.clearbit.com/anthropic.com',
     companySize: '600+ employees (AI Frontier)',
     location: 'San Francisco, CA',
     jobLink: 'https://anthropic.com/careers',
@@ -131,7 +123,6 @@ export const POPULAR_COMPANIES = [
     name: 'Datadog',
     aliases: ['DatadogHQ'],
     domain: 'datadoghq.com',
-    logo: 'https://logo.clearbit.com/datadoghq.com',
     companySize: '6,000+ employees',
     location: 'New York, NY / Remote',
     jobLink: 'https://careers.datadoghq.com',
@@ -142,7 +133,6 @@ export const POPULAR_COMPANIES = [
     name: 'Snowflake',
     aliases: ['Snowflake Computing'],
     domain: 'snowflake.com',
-    logo: 'https://logo.clearbit.com/snowflake.com',
     companySize: '7,000+ employees',
     location: 'Bozeman, MT / San Mateo, CA / Remote',
     jobLink: 'https://careers.snowflake.com',
@@ -153,7 +143,6 @@ export const POPULAR_COMPANIES = [
     name: 'Coinbase',
     aliases: ['Coinbase Global'],
     domain: 'coinbase.com',
-    logo: 'https://logo.clearbit.com/coinbase.com',
     companySize: '3,800+ employees',
     location: 'Remote-First (US / Global)',
     jobLink: 'https://coinbase.com/careers',
@@ -164,7 +153,6 @@ export const POPULAR_COMPANIES = [
     name: 'Adobe',
     aliases: ['Adobe Inc', 'Adobe Systems'],
     domain: 'adobe.com',
-    logo: 'https://logo.clearbit.com/adobe.com',
     companySize: '30,000+ employees (Enterprise)',
     location: 'San Jose, CA / Remote',
     jobLink: 'https://careers.adobe.com',
@@ -175,7 +163,6 @@ export const POPULAR_COMPANIES = [
     name: 'Salesforce',
     aliases: ['Salesforce.com'],
     domain: 'salesforce.com',
-    logo: 'https://logo.clearbit.com/salesforce.com',
     companySize: '72,000+ employees (Enterprise)',
     location: 'San Francisco, CA / Remote',
     jobLink: 'https://salesforce.com/company/careers',
@@ -186,7 +173,6 @@ export const POPULAR_COMPANIES = [
     name: 'Spotify',
     aliases: ['Spotify AB'],
     domain: 'spotify.com',
-    logo: 'https://logo.clearbit.com/spotify.com',
     companySize: '9,000+ employees',
     location: 'Stockholm, Sweden / New York, NY / Remote',
     jobLink: 'https://spotifyjobs.com',
@@ -197,7 +183,6 @@ export const POPULAR_COMPANIES = [
     name: 'Shopify',
     aliases: ['Shopify Inc'],
     domain: 'shopify.com',
-    logo: 'https://logo.clearbit.com/shopify.com',
     companySize: '8,500+ employees',
     location: 'Ottawa, Canada / Digital by Default (Remote)',
     jobLink: 'https://shopify.com/careers',
@@ -208,7 +193,6 @@ export const POPULAR_COMPANIES = [
     name: 'Atlassian',
     aliases: ['Jira', 'Confluence', 'Trello'],
     domain: 'atlassian.com',
-    logo: 'https://logo.clearbit.com/atlassian.com',
     companySize: '12,000+ employees',
     location: 'Sydney, Australia / San Francisco / Remote (TEAM Anywhere)',
     jobLink: 'https://atlassian.com/company/careers',
@@ -219,8 +203,7 @@ export const POPULAR_COMPANIES = [
     name: 'NVIDIA',
     aliases: ['Nvidia Corp'],
     domain: 'nvidia.com',
-    logo: 'https://logo.clearbit.com/nvidia.com',
-    companySize: '30,000+ employees (Hardware & AI)',
+    companySize: '42,000+ employees (FY26 Wikipedia)',
     location: 'Santa Clara, CA / Hybrid',
     jobLink: 'https://nvidia.com/en-us/about-nvidia/careers',
     tags: ['Semiconductors', 'GPUs', 'CUDA', 'AI Hardware', 'High Market Cap'],
@@ -230,7 +213,6 @@ export const POPULAR_COMPANIES = [
     name: 'ByteDance',
     aliases: ['TikTok'],
     domain: 'bytedance.com',
-    logo: 'https://logo.clearbit.com/bytedance.com',
     companySize: '150,000+ employees',
     location: 'Singapore / San Jose / Beijing / London',
     jobLink: 'https://jobs.bytedance.com',
@@ -241,7 +223,6 @@ export const POPULAR_COMPANIES = [
     name: 'GitHub',
     aliases: ['GitHub Inc'],
     domain: 'github.com',
-    logo: 'https://logo.clearbit.com/github.com',
     companySize: '3,000+ employees (Subsidiary of Microsoft)',
     location: 'Remote-First (Global)',
     jobLink: 'https://github.com/about/careers',
@@ -252,7 +233,6 @@ export const POPULAR_COMPANIES = [
     name: 'Oracle',
     aliases: ['Oracle Corporation'],
     domain: 'oracle.com',
-    logo: 'https://logo.clearbit.com/oracle.com',
     companySize: '160,000+ employees (Enterprise)',
     location: 'Austin, TX / Redwood City, CA',
     jobLink: 'https://oracle.com/careers',
@@ -263,7 +243,6 @@ export const POPULAR_COMPANIES = [
     name: 'Palantir',
     aliases: ['Palantir Technologies'],
     domain: 'palantir.com',
-    logo: 'https://logo.clearbit.com/palantir.com',
     companySize: '4,000+ employees',
     location: 'Denver, CO / New York / London',
     jobLink: 'https://palantir.com/careers',
@@ -274,7 +253,6 @@ export const POPULAR_COMPANIES = [
     name: 'Cisco',
     aliases: ['Cisco Systems'],
     domain: 'cisco.com',
-    logo: 'https://logo.clearbit.com/cisco.com',
     companySize: '84,000+ employees (Networking & Security)',
     location: 'San Jose, CA / Remote',
     jobLink: 'https://cisco.com/careers',
@@ -285,7 +263,6 @@ export const POPULAR_COMPANIES = [
     name: 'Intel',
     aliases: ['Intel Corporation'],
     domain: 'intel.com',
-    logo: 'https://logo.clearbit.com/intel.com',
     companySize: '124,000+ employees',
     location: 'Santa Clara, CA / Hillsboro, OR',
     jobLink: 'https://jobs.intel.com',
@@ -296,7 +273,6 @@ export const POPULAR_COMPANIES = [
     name: 'Goldman Sachs',
     aliases: ['GS'],
     domain: 'goldmansachs.com',
-    logo: 'https://logo.clearbit.com/goldmansachs.com',
     companySize: '45,000+ employees (Investment Banking)',
     location: 'New York, NY / London / Bengaluru',
     jobLink: 'https://goldmansachs.com/careers',
@@ -305,9 +281,8 @@ export const POPULAR_COMPANIES = [
   },
   {
     name: 'JPMorgan Chase',
-    aliases: ['JPMorgan', 'JPMC'],
+    aliases: ['JPMC'],
     domain: 'jpmorganchase.com',
-    logo: 'https://logo.clearbit.com/jpmorganchase.com',
     companySize: '300,000+ employees (Financial Services)',
     location: 'New York, NY / Global',
     jobLink: 'https://careers.jpmorgan.com',
@@ -318,7 +293,6 @@ export const POPULAR_COMPANIES = [
     name: 'Razorpay',
     aliases: ['Razorpay Software'],
     domain: 'razorpay.com',
-    logo: 'https://logo.clearbit.com/razorpay.com',
     companySize: '3,500+ employees (Fintech Unicorn)',
     location: 'Bengaluru, India',
     jobLink: 'https://razorpay.com/jobs',
@@ -329,7 +303,6 @@ export const POPULAR_COMPANIES = [
     name: 'Swiggy',
     aliases: ['Swiggy Ltd'],
     domain: 'swiggy.com',
-    logo: 'https://logo.clearbit.com/swiggy.com',
     companySize: '6,000+ employees',
     location: 'Bengaluru, India',
     jobLink: 'https://careers.swiggy.com',
@@ -340,7 +313,6 @@ export const POPULAR_COMPANIES = [
     name: 'Zomato',
     aliases: ['Blinkit'],
     domain: 'zomato.com',
-    logo: 'https://logo.clearbit.com/zomato.com',
     companySize: '5,000+ employees',
     location: 'Gurugram, India',
     jobLink: 'https://zomato.com/careers',
@@ -351,7 +323,6 @@ export const POPULAR_COMPANIES = [
     name: 'Flipkart',
     aliases: ['Flipkart Group'],
     domain: 'flipkart.com',
-    logo: 'https://logo.clearbit.com/flipkart.com',
     companySize: '30,000+ employees (Walmart Subsidiary)',
     location: 'Bengaluru, India',
     jobLink: 'https://flipkartcareers.com',
@@ -362,7 +333,6 @@ export const POPULAR_COMPANIES = [
     name: 'Infosys',
     aliases: ['Infosys Ltd'],
     domain: 'infosys.com',
-    logo: 'https://logo.clearbit.com/infosys.com',
     companySize: '315,000+ employees (IT Consulting)',
     location: 'Bengaluru, India / Global',
     jobLink: 'https://infosys.com/careers',
@@ -373,7 +343,6 @@ export const POPULAR_COMPANIES = [
     name: 'Tata Consultancy Services',
     aliases: ['TCS'],
     domain: 'tcs.com',
-    logo: 'https://logo.clearbit.com/tcs.com',
     companySize: '600,000+ employees (IT Giant)',
     location: 'Mumbai, India / Global',
     jobLink: 'https://tcs.com/careers',
@@ -383,7 +352,7 @@ export const POPULAR_COMPANIES = [
 ];
 
 /**
- * Live search helper: Matches local curated database first, then queries Wikipedia/Clearbit if needed
+ * Live search helper: Matches local curated database first, and queries Wikipedia OpenSearch
  */
 export const searchCompanies = async (query = '') => {
   if (!query || query.trim().length === 0) {
@@ -401,51 +370,36 @@ export const searchCompanies = async (query = '') => {
     return nameMatch || domainMatch || aliasMatch || tagMatch;
   });
 
-  // If we have strong local matches, prioritize them
-  if (localMatches.length >= 3) {
+  // 2. Fetch live suggestions from Wikipedia API
+  try {
+    const wikiResults = await searchWikipediaCompanies(query);
+    const formattedWiki = wikiResults
+      .filter((w) => !localMatches.some((lm) => lm.name.toLowerCase() === w.title.toLowerCase()))
+      .map((w) => {
+        const cleanDomain = w.title.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
+        return {
+          name: w.title,
+          domain: cleanDomain,
+          companySize: 'Wikipedia vCard parsing active',
+          location: 'Global',
+          jobLink: `https://${cleanDomain}/careers`,
+          tags: ['Company', 'Wikipedia'],
+          overview: w.snippet || `Wikipedia article for ${w.title}`,
+          isWikipediaLive: true
+        };
+      });
+
+    return [...localMatches, ...formattedWiki].slice(0, 8);
+  } catch (e) {
     return localMatches.slice(0, 8);
   }
+};
 
-  // 2. Fetch live suggestions from Wikipedia API (OpenSearch for live business/company lookup)
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1200);
-
-    const wikiUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=6&namespace=0&format=json&origin=*`;
-    const response = await fetch(wikiUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const data = await response.json();
-      const titles = data[1] || [];
-      const descriptions = data[2] || [];
-      const links = data[3] || [];
-
-      const wikiResults = titles
-        .filter((title) => {
-          // Avoid duplicate if already in localMatches
-          return !localMatches.some((lm) => lm.name.toLowerCase() === title.toLowerCase());
-        })
-        .map((title, idx) => {
-          const desc = descriptions[idx] || '';
-          const cleanDomain = title.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
-
-          return {
-            name: title,
-            domain: cleanDomain,
-            companySize: '5,000+ employees',
-            location: 'Global / Headquarters',
-            jobLink: links[idx] || `https://${cleanDomain}/careers`,
-            tags: ['Company', 'Enterprise'],
-            overview: desc || `Information about ${title}.`
-          };
-        });
-
-      return [...localMatches, ...wikiResults].slice(0, 8);
-    }
-  } catch (e) {
-    // Return local matches if remote network fails
-  }
-
-  return localMatches.slice(0, 8);
+/**
+ * Fetch full Wikipedia Infobox vCard intelligence and generate custom fields based on vCard length
+ */
+export const getCompanyVCardIntelligence = async (companyName) => {
+  if (!companyName) return null;
+  const wikiData = await fetchCompanyWikipediaDetails(companyName);
+  return wikiData;
 };

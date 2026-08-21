@@ -136,6 +136,25 @@ export const CompanyRootNode = ({
               </div>
             )}
 
+            {interview.customFields && interview.customFields.length > 0 && (
+              <div className="pt-2 border-t border-slate-800/80 space-y-2">
+                <span className="text-[11px] font-semibold text-brand-300 block">
+                  🌐 Wikipedia vCard Specifications & Attributes:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {interview.customFields.map((cf, cIdx) => (
+                    <div
+                      key={cf.id || cIdx}
+                      className="p-2 rounded-lg bg-slate-900/60 border border-slate-800 text-[11px]"
+                    >
+                      <span className="text-slate-400 font-medium block">{cf.label}:</span>
+                      <span className="text-slate-200 font-semibold block mt-0.5">{cf.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {interview.tags && interview.tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {interview.tags.map((tag, tIdx) => (

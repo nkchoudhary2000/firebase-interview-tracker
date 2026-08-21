@@ -164,6 +164,18 @@ export const generateOverviewMarkdown = (interview) => {
   if (interview.location) md += `- **Location:** ${interview.location}\n`;
   if (interview.appliedDate) md += `- **Applied Date:** ${interview.appliedDate}\n`;
   if (interview.jobLink) md += `- **Job Posting:** [Link](${interview.jobLink})\n`;
+  
+  if (interview.customFields && interview.customFields.length > 0) {
+    md += `\n### 🌐 Company vCard & Additional Specifications\n\n`;
+    md += `| Attribute | Details |\n`;
+    md += `| :--- | :--- |\n`;
+    interview.customFields.forEach((cf) => {
+      if (cf.label && cf.value) {
+        md += `| **${cf.label}** | ${cf.value} |\n`;
+      }
+    });
+  }
+
   if (interview.notes) md += `\n**General Notes:**\n> ${interview.notes.replace(/\n/g, '\n> ')}\n`;
   return md.trim();
 };
