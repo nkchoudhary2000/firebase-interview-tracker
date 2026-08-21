@@ -1,45 +1,51 @@
-# 🎯 InterviewTracker — Career Intelligence & Interview Management
+# 🎯 InterviewTracker — Private Career Intelligence & Interview Management
 
-A modern, full-stack **Interview Tracker** web service designed to manage, organize, and prepare for multi-stage technical interviews. Built with **React**, **Tailwind CSS**, **Firebase (Auth & Firestore)**, and **Google Workspace (Gmail API)** integration, featuring an interactive **hierarchical tree view** with **multi-level Markdown export**.
+A modern, secure **Interview Tracker** web application designed to manage, organize, and prepare for multi-stage technical interviews. Built with **React 18**, **Vite**, **Tailwind CSS**, **Firebase Authentication (Google Sign-In only)**, and **Cloud Firestore**, featuring an interactive **hierarchical tree view** and **multi-level Markdown export**.
+
+---
+
+## 🌐 Live Production Application
+
+- **Live URL:** [https://interview-tracker-niomsolutionx.web.app](https://interview-tracker-niomsolutionx.web.app)
+- **Firebase Project:** `niraj-portfolio-a7011`
+- **Hosting Target:** `interview-tracker-niomsolutionx`
 
 ---
 
 ## ✨ Key Features
 
-### 1. 🔐 Google Authentication & Gmail OAuth
-- **Strict Google Sign-In**: Authenticate using verified Gmail accounts.
-- **Gmail Readonly Scope**: Seamlessly requests `https://www.googleapis.com/auth/gmail.readonly` during OAuth login.
-- **OAuth Token Management**: Securely passes the access token to the Google Workspace Gmail REST API v1.
+### 1. 🔒 Private Google Authentication Barrier
+- **Strict Google Sign-In**: Unauthenticated visitors are presented with a private Google Sign-In landing page (`AuthGate`).
+- **Zero Public Data**: No interview records, CTC details, or dossiers are accessible in the open.
+- **Strict Per-User Firestore Scoping**: All interviews are isolated by `userId == user.uid` in Firestore security rules.
 
-### 2. 📬 Google Workspace Gmail Integration
-- **Labels Explorer**: Fetch and filter user inbox labels (`INBOX`, `STARRED`, `Interviews`, `Job Offers`, etc.) with message counters.
-- **Email Thread Viewer**: Read conversation threads, recruitment updates, and offer letters directly in a clean card/accordion UI.
-- **One-Click Dossier Draft**: Automatically convert an interview invitation email into an interview profile with pre-filled recruiter details.
+### 2. 🔍 Google-Style Company Name Search
+- **Instant Search Suggestions**: As you type a company name, a clean dropdown suggests matching companies (Google, Stripe, Microsoft, Nvidia, etc.).
+- **Manual Profile Control**: Selecting a company name populates only the company name, keeping all other profile fields blank for clean manual entry.
 
 ### 3. 🏢 Cloud Firestore Interview Data Model
 Comprehensive schema tailored for multi-round interview tracking:
-- **Company Profile**: Name, Size, Location, Applied Date, Target Role, URL.
-- **Expected Compensation**: Target CTC, Base + Bonus + Equity breakdown.
+- **Company Profile**: Name, Size / Employee Count, Location, Applied Date, Target Role, URL.
+- **Expected Compensation**: Target CTC / Comp breakdown.
 - **Application Statuses**: `Applied`, `Screening`, `Interviewing`, `Offered`, `Accepted`, `Rejected`, `Withdrawn`.
-- **HR & Talent Contacts**: Recruiter names, emails, direct phone lines, and communication notes.
-- **Interviewers & Panelists**: Interviewer names, engineering roles, and LinkedIn links.
-- **Rounds & Stages**: Round Name, Date, Status (`Scheduled`, `Cleared`, `Failed`, `Pending Feedback`), notes, and feedback.
-- **Questions & Answers**: Question text, answer talking points, code snippets, and topic categories.
+- **HR & Talent Contacts**: Recruiter names, emails, direct phone lines, and notes.
+- **Interviewers & Panelists**: Interviewer names, engineering titles, and LinkedIn profile URLs.
+- **Rounds & Stages**: Round Name, Date, Status (`Scheduled`, `Cleared`, `Failed`, `Pending Feedback`), and round strategy notes.
+- **Questions & Answers**: Technical questions, code snippets, talking points, and topic categorization.
 
-### 4. 🌳 Recursive Collapsible Tree Structure & Multi-Level Markdown Copier
-- **Nested Tree Visualizer**: Explore the full hierarchy: `Company -> Overview / HR Contacts / Interviewers / Rounds -> Round Details -> Q&A Pairs`.
-- **Copy as Markdown at EVERY Level**:
-  - 🏢 **Company Root Node**: Copies the complete interview dossier (Overview table, HR list, Interviewers, all Rounds with Q&As).
+### 4. 🌳 Recursive Collapsible Tree Hierarchy & Multi-Level Markdown Copier
+- **Nested Tree Visualizer**: Explore the full structure: `Company -> Role Overview / HR Contacts / Interviewers / Rounds -> Round Details -> Q&A Pairs`.
+- **Multi-Level Copy as Markdown**:
+  - 🏢 **Company Root Node**: Copies complete dossier (Overview table, HR list, Interviewers, and all Rounds with Q&As).
   - 👥 **HR Contacts Subtree**: Copies formatted Markdown table of all recruiters.
   - 🧑‍💻 **Interviewers Subtree**: Copies list of interviewers with LinkedIn links.
   - 🎯 **Rounds Subtree**: Copies all rounds timeline with nested Q&As.
   - 📌 **Single Round Node**: Copies that specific round's details and questions.
   - 💬 **Individual Q&A Node**: Copies question, topic, and formatted answer blockquote.
-  - 👤 **Single Contact Node**: Copies contact card.
 
 ### 5. 🧠 Central Q&A Knowledge Bank & Study Guide
 - Centralized database of all technical questions logged across all companies.
-- Filter questions by topic (e.g. *Distributed Systems*, *Browser Performance*, *Memory Management*, *Behavioral*).
+- Filter questions by topic (e.g. *Distributed Systems*, *Browser Performance*, *Algorithms*, *System Design*).
 - One-click **"Copy Filtered as Study Guide"** Markdown export for rapid interview preparation.
 
 ---
@@ -49,76 +55,54 @@ Comprehensive schema tailored for multi-round interview tracking:
 - **Frontend**: [React 18](https://react.dev/), [Vite](https://vitejs.dev/)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/) with custom dark glassmorphism and glowing palettes
 - **BaaS & Database**: [Firebase Authentication](https://firebase.google.com/docs/auth), [Cloud Firestore](https://firebase.google.com/docs/firestore), [Firebase Hosting](https://firebase.google.com/docs/hosting)
-- **Integrations**: [Google Workspace Gmail API v1](https://developers.google.com/gmail/api)
 - **Icons**: [Lucide React](https://lucide.dev/)
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Prerequisites
-- Node.js (v18 or higher)
-- npm or yarn
-- A Firebase project with **Authentication (Google provider)** and **Firestore Database** enabled.
-
-### 2. Installation
+### 1. Installation
 
 ```bash
 # Clone repository
-git clone <repo-url>
+git clone https://github.com/nkchoudhary2000/firebase-interview-tracker.git
 cd firebase-interview-tracker
 
 # Install dependencies
 npm install
 ```
 
-### 3. Environment Configuration
+### 2. Environment Configuration
 
-Create a `.env` file from the provided `.env.example`:
-
-```bash
-cp .env.example .env
-```
-
-Populate `.env` with your Firebase web app keys (from [Firebase Console](https://console.firebase.google.com/)):
+Create a `.env` file with your Firebase configuration:
 
 ```env
 VITE_FIREBASE_API_KEY="your-api-key"
 VITE_FIREBASE_AUTH_DOMAIN="your-project-id.firebaseapp.com"
 VITE_FIREBASE_PROJECT_ID="your-project-id"
-VITE_FIREBASE_STORAGE_BUCKET="your-project-id.appspot.com"
+VITE_FIREBASE_STORAGE_BUCKET="your-project-id.firebasestorage.app"
 VITE_FIREBASE_MESSAGING_SENDER_ID="your-messaging-sender-id"
 VITE_FIREBASE_APP_ID="1:123456789012:web:abcdef1234567890"
 VITE_FIREBASE_MEASUREMENT_ID="G-XXXXXXXXXX"
 ```
 
-> **Note**: The application includes a rich **Demo Mode** enabled by default when API keys are pending, allowing full interactive exploration of the tree visualizer, sample dossiers, and simulated Gmail explorer.
-
-### 4. Running Locally
+### 3. Running Locally
 
 ```bash
 npm run dev
 ```
 
-The application will start on `http://localhost:3000`.
+The application starts on `http://localhost:3000`.
 
-### 5. Production Build
+### 4. Production Build & Deployment
 
 ```bash
+# Build production bundle
 npm run build
-npm run preview
+
+# Deploy to Firebase Hosting
+firebase deploy --only hosting
 ```
-
----
-
-## 🔒 Security & Google OAuth Configuration
-
-1. In the **Google Cloud Console** / **Firebase Authentication** settings:
-   - Enable **Google** sign-in provider.
-   - Under **Google API Scopes**, add `https://www.googleapis.com/auth/gmail.readonly`.
-   - Add your local dev URL (`http://localhost:3000`) and production hosting domain to **Authorized Domains**.
-2. **Firestore Security Rules**:
-   - `firestore.rules` is configured so each authenticated user can only read and write their own interview documents (`userId == request.auth.uid`).
 
 ---
 
