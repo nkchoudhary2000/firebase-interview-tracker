@@ -9,7 +9,10 @@ import {
   Sparkles, 
   ExternalLink,
   Plus,
-  Filter
+  Filter,
+  Key,
+  ShieldCheck,
+  RotateCw
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useInterviews } from '../../context/InterviewContext';
@@ -30,9 +33,9 @@ export const GmailIntegration = ({ onOpenAddModalWithData }) => {
   const [loadingLabels, setLoadingLabels] = useState(true);
   const [loadingThreads, setLoadingThreads] = useState(false);
   const [isMockData, setIsMockData] = useState(false);
+  const [apiError, setApiError] = useState(null);
   const [selectedThread, setSelectedThread] = useState(null);
 
-  // Quick search keywords for interviews
   const quickKeywords = ['Interview', 'Offer', 'Assessment', 'Recruiter', 'Scheduling', 'Next Steps'];
 
   // Load Labels on mount or when token changes
@@ -47,10 +50,14 @@ export const GmailIntegration = ({ onOpenAddModalWithData }) => {
 
   const loadLabels = async () => {
     setLoadingLabels(true);
+    setApiError(null);
     try {
       const result = await fetchGmailLabels(accessToken);
       setLabels(result.labels);
       setIsMockData(result.isMock);
+      if (result.errorInfo) {
+        setApiError(result.errorInfo);
+      }
     } catch (err) {
       console.warn('Labels load notice:', err);
     } finally {
@@ -69,6 +76,9 @@ export const GmailIntegration = ({ onOpenAddModalWithData }) => {
       if (result.isMock) {
         setIsMockData(true);
       }
+      if (result.errorInfo && !apiError) {
+        setApiError(result.errorInfo);
+      }
     } catch (err) {
       console.warn('Threads load notice:', err);
     } finally {
@@ -86,9 +96,7 @@ export const GmailIntegration = ({ onOpenAddModalWithData }) => {
     loadThreads(kw);
   };
 
-  // Convert an email thread directly into a new interview dossier
   const handleImportToTracker = (thread) => {
-    // Extract company name candidate from subject
     let companyName = 'Company from Email';
     if (thread.subject.includes('—') || thread.subject.includes('-') || thread.subject.includes(':')) {
       const parts = thread.subject.split(/[-—:]/);
@@ -123,6 +131,75 @@ export const GmailIntegration = ({ onOpenAddModalWithData }) => {
 
   return (
     <div className="space-y-6">
+      {/* 403 Forbidden Diagnostic Guidance Alert */}
+      {apiError?.is403 && (
+        <div className="rounded-2xl bg-gradient-to-r from-amber-950/80 via-slate-900/90 to-rose-950/80 border border-amber-500/40 p-5 shadow-2xl space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 mt-0.5">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <span>Google API Notice: Enable Gmail API in Google Cloud Console</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-mono">
+                  HTTP 403 Forbidden
+                </span>
+              </h4>
+              <p className="mt-1 text-xs text-slate-300 leading-relaxed">
+                Your Google OAuth token was successfully issued, but Google Cloud returned 403. In Google Cloud projects, the <strong>Gmail API</strong> is disabled by default until enabled in the API library.
+              </p>
+              
+              <div className="mt-3 p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300 space-y-2">
+                <div className="font-semibold text-slate-200 flex items-center gap-1.5">
+                  <Key className="w-3.5 h-3.5 text-amber-400" />
+                  <span>2 Quick Steps to Complete Gmail Connection:</span>
+                </div>
+                <ol className="list-decimal list-inside space-y-1.5 text-[11px] text-slate-300">
+                  <li>
+                    <strong>Enable Gmail API:</strong> Open the Google Cloud Console library and click <strong>&quot;Enable&quot;</strong>.
+                  </li>
+                  <li>
+                    <strong>OAuth Consent Screen:</strong> If your project is in <em>&quot;Testing&quot;</em> mode, add your email address under <em>&quot;Test users&quot;</em>.
+                  </li>
+                </ol>
+              </div>
+
+              <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
+                <a
+                  href="https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=niraj-portfolio-a7011"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-md transition-all active:scale-95"
+                >
+                  <span>1. Enable Gmail API (1-Click)</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+
+                <a
+                  href="https://console.cloud.google.com/apis/credentials/consent?project=niraj-portfolio-a7011"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-all"
+                >
+                  <span>2. OAuth Test Users</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+
+                <button
+                  onClick={() => {
+                    signInWithGoogle();
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-600/90 hover:bg-brand-600 text-white text-xs font-semibold shadow-sm transition-all"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                  <span>Re-authenticate</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Gmail Hub Header */}
       <div className="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -132,13 +209,13 @@ export const GmailIntegration = ({ onOpenAddModalWithData }) => {
               <h3 className="text-base font-bold text-slate-100">
                 Gmail Workspace Integration
               </h3>
-              {accessToken ? (
+              {accessToken && !apiError?.is403 ? (
                 <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Live OAuth
+                  <CheckCircle2 className="w-3 h-3" /> Live Connected
                 </span>
               ) : (
                 <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" /> Demo Simulation
+                  <Sparkles className="w-3 h-3" /> Fallback Mode Active
                 </span>
               )}
             </div>
@@ -148,7 +225,7 @@ export const GmailIntegration = ({ onOpenAddModalWithData }) => {
           </div>
 
           <div className="flex items-center gap-2">
-            {!accessToken && !isDemoMode && (
+            {!accessToken && (
               <button
                 onClick={signInWithGoogle}
                 className="glass-button-primary text-xs py-2 px-3"
@@ -245,7 +322,7 @@ export const GmailIntegration = ({ onOpenAddModalWithData }) => {
           </span>
           {isMockData && (
             <span className="text-amber-400 font-medium flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Realistic Mock Data
+              <Sparkles className="w-3 h-3" /> Showing Fallback Preview
             </span>
           )}
         </div>

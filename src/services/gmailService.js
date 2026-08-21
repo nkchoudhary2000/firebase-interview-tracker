@@ -27,11 +27,37 @@ const decodeBase64Url = (base64UrlStr) => {
 };
 
 /**
+ * Helper to extract detailed error messages from Google API responses
+ */
+const parseGoogleApiError = async (response) => {
+  let errorMsg = `Gmail API error (${response.status}): ${response.statusText}`;
+  let errorDetail = null;
+
+  try {
+    const errorJson = await response.json();
+    if (errorJson?.error?.message) {
+      errorMsg = errorJson.error.message;
+      errorDetail = errorJson.error;
+    }
+  } catch (e) {
+    // Ignore json parse error
+  }
+
+  return {
+    status: response.status,
+    message: errorMsg,
+    detail: errorDetail,
+    is403: response.status === 403,
+    is401: response.status === 401
+  };
+};
+
+/**
  * Fetch all Gmail labels for the authenticated user
  */
 export const fetchGmailLabels = async (accessToken) => {
   if (!accessToken) {
-    return { labels: getMockGmailLabels(), isMock: true };
+    return { labels: getMockGmailLabels(), isMock: true, error: null };
   }
 
   try {
@@ -43,17 +69,24 @@ export const fetchGmailLabels = async (accessToken) => {
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('OAuth access token expired or invalid. Please re-authenticate.');
-      }
-      throw new Error(`Gmail API error: ${response.status} ${response.statusText}`);
+      const err = await parseGoogleApiError(response);
+      return {
+        labels: getMockGmailLabels(),
+        isMock: true,
+        error: err.message,
+        errorInfo: err
+      };
     }
 
     const data = await response.json();
-    return { labels: data.labels || [], isMock: false };
+    return { labels: data.labels || [], isMock: false, error: null };
   } catch (error) {
-    console.warn('Live Gmail labels fetch failed, using fallback:', error.message);
-    return { labels: getMockGmailLabels(), error: error.message, isMock: true };
+    console.warn('Live Gmail labels fetch failed:', error.message);
+    return {
+      labels: getMockGmailLabels(),
+      error: error.message,
+      isMock: true
+    };
   }
 };
 
@@ -62,7 +95,7 @@ export const fetchGmailLabels = async (accessToken) => {
  */
 export const fetchGmailThreads = async (accessToken, { labelId = 'INBOX', query = '', maxResults = 12 } = {}) => {
   if (!accessToken) {
-    return { threads: getMockGmailThreads(labelId, query), isMock: true };
+    return { threads: getMockGmailThreads(labelId, query), isMock: true, error: null };
   }
 
   try {
@@ -82,7 +115,13 @@ export const fetchGmailThreads = async (accessToken, { labelId = 'INBOX', query 
     });
 
     if (!response.ok) {
-      throw new Error(`Gmail API error (${response.status}): ${response.statusText}`);
+      const err = await parseGoogleApiError(response);
+      return {
+        threads: getMockGmailThreads(labelId, query),
+        isMock: true,
+        error: err.message,
+        errorInfo: err
+      };
     }
 
     const data = await response.json();
@@ -113,10 +152,14 @@ export const fetchGmailThreads = async (accessToken, { labelId = 'INBOX', query 
       })
     );
 
-    return { threads: detailedThreads, isMock: false };
+    return { threads: detailedThreads, isMock: false, error: null };
   } catch (error) {
-    console.warn('Live Gmail threads fetch failed, using mock threads:', error.message);
-    return { threads: getMockGmailThreads(labelId, query), error: error.message, isMock: true };
+    console.warn('Live Gmail threads fetch failed:', error.message);
+    return {
+      threads: getMockGmailThreads(labelId, query),
+      error: error.message,
+      isMock: true
+    };
   }
 };
 
@@ -206,7 +249,7 @@ const parseFullThread = (threadData) => {
 };
 
 // ==========================================
-// Rich Mock Datasets for Demo & Fallback
+// Rich Mock Datasets for Fallback
 // ==========================================
 
 export const getMockGmailLabels = () => [
