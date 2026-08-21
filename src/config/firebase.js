@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getAnalytics, isSupported } from 'firebase/analytics';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
@@ -12,7 +13,6 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || ''
 };
 
-// Check if valid Firebase configuration is provided
 export const isFirebaseConfigured = () => {
   return Boolean(
     firebaseConfig.apiKey &&
@@ -26,6 +26,7 @@ let app = null;
 let auth = null;
 let db = null;
 let googleProvider = null;
+let analytics = null;
 
 try {
   if (isFirebaseConfigured()) {
@@ -39,11 +40,18 @@ try {
     googleProvider.setCustomParameters({
       prompt: 'select_account'
     });
-  } else {
-    console.info('Firebase credentials not configured. App running in Local/Demo mode.');
+
+    // Initialize Analytics if supported in environment
+    if (typeof window !== 'undefined' && firebaseConfig.measurementId) {
+      isSupported().then((supported) => {
+        if (supported) {
+          analytics = getAnalytics(app);
+        }
+      }).catch(() => {});
+    }
   }
 } catch (error) {
   console.warn('Firebase initialization notice:', error.message);
 }
 
-export { app, auth, db, googleProvider, firebaseConfig };
+export { app, auth, db, googleProvider, analytics, firebaseConfig };

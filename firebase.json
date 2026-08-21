@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "interview-tracker-niomsolutionx",
     "public": "dist",
     "ignore": [
       "firebase.json",

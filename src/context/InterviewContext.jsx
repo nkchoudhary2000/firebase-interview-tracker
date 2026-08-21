@@ -84,14 +84,13 @@ export const InterviewProvider = ({ children }) => {
           setSelectedInterviewId(parsed[0].id);
         }
       } else {
-        // Initialize with rich sample data on first visit
-        setInterviews(SAMPLE_INTERVIEWS);
-        setSelectedInterviewId(SAMPLE_INTERVIEWS[0]?.id || null);
-        localStorage.setItem(LOCAL_STORAGE_INTERVIEWS_KEY, JSON.stringify(SAMPLE_INTERVIEWS));
+        // Start clean in production
+        setInterviews([]);
+        setSelectedInterviewId(null);
       }
     } catch (e) {
-      setInterviews(SAMPLE_INTERVIEWS);
-      setSelectedInterviewId(SAMPLE_INTERVIEWS[0]?.id || null);
+      setInterviews([]);
+      setSelectedInterviewId(null);
     } finally {
       setLoading(false);
     }
